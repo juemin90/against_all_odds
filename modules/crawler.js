@@ -38,22 +38,20 @@ const field_map = {
 };
 
 const waitAMinute = () => new Promise((resolve) => {
-	const mili_second = (Math.random() * 10000) + 5000;
+	const mili_second = (Math.random() * 5000) + 3000;
 	setTimeout(() => {
 		resolve();
 	}, mili_second);
 });
 
 const getHtml = (url, cookie) => new Promise((resolve, reject) => {
-	if (cookie) {
-		superagent.get(url).set({ cookie }).end((err, html) => {
-			resolve(html.text);
-		});
-	} else {
-		superagent.get(url).end((err, html) => {
-			resolve(html.text);
-		});
-	}
+	const header = {
+		'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/78.0.3904.97 Safari/537.36',
+	};
+	if (cookie) header.cookie = cookie;
+	superagent.get(url).set(header).end((err, html) => {
+		resolve(html.text);
+	});
 });
 
 const getDates = (start_date, end_date) => {
@@ -62,11 +60,6 @@ const getDates = (start_date, end_date) => {
 		dates.push(date);
 	}
 	return dates;
-};
-
-const getParsedHtml = (html) => {
-	const $ = cheerio.load(html);
-	return $;
 };
 
 const getDateAndTime = (str) => {
@@ -81,10 +74,7 @@ const getAverage = (data) => {
 	return (splitted_data.map(item => parseFloat(item, 10)).reduce((a1, a2) => (a1 + a2))) / splitted_data.length;
 };
 
-const getData = async (date) => {
-	const url = `${BASE_URL}/diary/${date}`;
-	const html = await getHtml(url);
-	const $ = getParsedHtml(html);
+const parseHtml = ($) => {
 	const games = $('tbody tr');
 	const result = [];
 	const game_infos = games.map((index, game) => {
@@ -102,12 +92,34 @@ const getData = async (date) => {
 		result.push(item);
 	});
 	return result;
+}
+
+const getData = async (date) => {
+	const url = `${BASE_URL}/diary/${date}`;
+	const html = await getHtml(url);
+	await waitAMinute();
+	const $ = cheerio.load(html);
+	let result = parseHtml($);
+
+	const page_num = $('#pager ul li').length;
+	debug(page_num);
+	const pages = Array.from(Array(page_num - 2).keys()).map(item => item + 2);
+	for (const page of pages) {
+		const page_url = `${BASE_URL}/diary/${date}/p.${page}`
+		const page_html = await getHtml(page_url);
+		const page_$ = cheerio.load(page_html);
+		const page_result = parseHtml(page_$);
+		result = [...result, ...page_result];
+		debug('page', page, page_result.length)
+		await waitAMinute();
+	}
+	return result;
 };
 
 const getInfo = async (game_id) => {
 	const url = `${BASE_URL}/race_sp/${game_id}`;
 	const html = await getHtml(url, cookie);
-	const $ = getParsedHtml(html);
+	const $ = cheerio.load(html);
 
 	// 赛事信息抓取
 	const teams = $('.analysisTeamName a');
@@ -187,6 +199,10 @@ const deleteMongo = date => new Promise((resolve, reject) => {
 });
 
 const insertMongo = data => new Promise((resolve, reject) => {
+	if (!data.length) {
+		resolve();
+		return;
+	}
 	getMongoClient().then((conn) => {
 		conn.collection(COLLECTION_NAME).insertMany(data, (err) => {
 			debug('test');
@@ -210,7 +226,6 @@ const getCsvData = (data) => {
 		});
 		return new_item;
 	});
-	debug(translated_obj);
 	const csv = parser.parse(translated_obj);
 	const decoded_csv = Buffer.concat([new Buffer('\xEF\xBB\xBF','binary'),new Buffer(csv)]);
 	return decoded_csv;
@@ -234,14 +249,15 @@ const getInfos = data => new Promise((resolve, reject) => {
 });
 
 const saveCsv = (csv_data, date) => {
-	const file_name = `${date}.csv`;
+	const file_name = `./cache_data/${date}.csv`;
 	fs.writeFileSync(file_name, csv_data);
 }
 
 const start = async () => {
 	const date = process.env.date || moment().subtract(1, 'days').format('YYYYMMDD');
 	debug(`${date} start`);
-	const data = (await getData(date)); // .slice(75, 80);
+	const data = (await getData(date)); // .slice(85, 90);
+	debug(data.length);
 	await waitAMinute();
 	const got_info_data = await getInfos(data);
 	const filtered_data = filterData(got_info_data);
