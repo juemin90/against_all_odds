@@ -6,13 +6,16 @@ const iconv = require('iconv-lite');
 const moment = require('moment');
 const { Parser } = require('json2csv');
 const fs = require('fs');
+const { getMongoClient } = require('./../libs/db_mongo');
 
+const COLLECTION_NAME = 'odds';
 const BASE_URL = 'https://www.dszuqiu.com';
 const cookie = 'Hm_lvt_a68414d98536efc52eeb879f984d8923=1573461414,1573905751; ds_session=r4h5b8qdfjbhrc7j27p0odl350; Hm_lpvt_a68414d98536efc52eeb879f984d8923=1574059831; uid=R-546490-8fd497af05dd23f4ea4027';
-let counter = 0;
+let counter = 1;
 
 const field_map = {
 	game_name: '赛事名称',
+	date: '日期',
 	time: '时间',
 	home_team: '主队',
 	away_team: '客队',
@@ -34,7 +37,8 @@ const field_map = {
 	half_goal_low_odd: '半场小球',
 };
 
-const waitAMinute = (mili_second = 1000) => new Promise((resolve) => {
+const waitAMinute = () => new Promise((resolve) => {
+	const mili_second = (Math.random() * 10000) + 5000;
 	setTimeout(() => {
 		resolve();
 	}, mili_second);
@@ -63,6 +67,13 @@ const getDates = (start_date, end_date) => {
 const getParsedHtml = (html) => {
 	const $ = cheerio.load(html);
 	return $;
+};
+
+const getDateAndTime = (str) => {
+	const [origin_date, time] = str.split(' ');
+	const [year, month, day] = origin_date.split('/');
+	const date = `20${year}-${month}-${day}`;
+	return [date, time];
 }
 
 const getAverage = (data) => {
@@ -83,9 +94,9 @@ const getData = async (date) => {
 			const a = $(td).find('a');
 			const field_value = a.length ? $(a).text() : $(td).text();
 			if (index === 0) item.game_name = field_value.trim();
-			if (index === 2) item.time = field_value.trim();
-			if (index === 4) [item.final_home_score, item.final_away_score] = field_value.replace(/\s/g, '').split(':')
-			if (index === 6) [item.half_home_score, item.half_away_score] = field_value.replace(/\s/g, '').split(':');
+			if (index === 2) [item.date, item.time] = getDateAndTime(field_value.trim());
+			if (index === 4) [item.final_home_score, item.final_away_score] = field_value.replace(/\s/g, '').split(':').map(item => Number(item));
+			if (index === 6) [item.half_home_score, item.half_away_score] = field_value.replace(/\s/g, '').split(':').map(item => Number(item));
 			if (index === 11) item.game_id = $(a).attr('href').split('/')[2];
 		});
 		result.push(item);
@@ -121,7 +132,7 @@ const getInfo = async (game_id) => {
 	const { handicap_home_odd: first_handicap_home_odd, handicap_away_odd: first_handicap_away_odd, handicap_goal: first_handicap_goal } = team_cast_odds[team_cast_odds.length - 1];
 
 	const filtered_team_cast_odds = team_cast_odds.filter(cast_odd => cast_odd.game_last_time > 45);
-	const { handicap_home_odd: half_handicap_home_odd, handicap_away_odd: half_handicap_away_odd, handicap_goal: half_handicap_goal } = filtered_team_cast_odds[filtered_team_cast_odds.length - 1];
+	const { handicap_home_odd: half_handicap_home_odd, handicap_away_odd: half_handicap_away_odd, handicap_goal: half_handicap_goal } = filtered_team_cast_odds[filtered_team_cast_odds.length - 1] || {};
 
 	// 大小球赔率抓取
 	const goals_trs = $($('.daxiao table')[0]).find('tr');
@@ -141,7 +152,7 @@ const getInfo = async (game_id) => {
 	const { goal_high_odd: first_goal_high_odd, goal_low_odd: first_goal_low_odd, goal: first_goal } = goal_odds[goal_odds.length - 1];
 
 	const filtered_goal_odds = goal_odds.filter(goal_odd => goal_odd.game_last_time > 45);
-	const { goal_high_odd: half_goal_high_odd, goal_low_odd: half_goal_low_odd, goal: half_goal } = filtered_goal_odds[filtered_goal_odds.length - 1];
+	const { goal_high_odd: half_goal_high_odd, goal_low_odd: half_goal_low_odd, goal: half_goal } = filtered_goal_odds[filtered_goal_odds.length - 1] || {};
 
 	return {
 		home_team,
@@ -160,6 +171,33 @@ const getInfo = async (game_id) => {
 		half_goal,
 	};
 };
+
+const deleteMongo = date => new Promise((resolve, reject) => {
+	const formatted_data = moment(date).format('YYYY-MM-DD');
+	getMongoClient().then((conn) => {
+		conn.collection(COLLECTION_NAME).deleteMany({ date }, (err) => {
+			debug('test');
+			if (err) {
+				console.log(err);
+				reject(err);
+			}
+			else resolve();
+		});
+	});
+});
+
+const insertMongo = data => new Promise((resolve, reject) => {
+	getMongoClient().then((conn) => {
+		conn.collection(COLLECTION_NAME).insertMany(data, (err) => {
+			debug('test');
+			if (err) {
+				console.log(err);
+				reject(err);
+			}
+			else resolve();
+		});
+	});
+});
 
 const getCsvData = (data) => {
 	const fields = Object.values(field_map);
@@ -184,8 +222,8 @@ const getInfos = data => new Promise((resolve, reject) => {
 	async.eachLimit(data, 1, (item, next) => {
 		getInfo(item.game_id).then((info) => {
 			Object.assign(item, info);
-			waitAMinute(10000).then(() => {
-				debug(`${item.game_id} / ${counter++} done`);
+			waitAMinute().then(() => {
+				debug(`game id: ${item.game_id}, ${counter++} / ${data.length}`);
 				next(null);
 			});
 		});
@@ -202,10 +240,13 @@ const saveCsv = (csv_data, date) => {
 
 const start = async () => {
 	const date = process.env.date || moment().subtract(1, 'days').format('YYYYMMDD');
-	const data = (await getData(date));
-	await waitAMinute(10000);
+	debug(`${date} start`);
+	const data = (await getData(date)); // .slice(75, 80);
+	await waitAMinute();
 	const got_info_data = await getInfos(data);
 	const filtered_data = filterData(got_info_data);
+	await deleteMongo(date);
+	await insertMongo(filtered_data);
 	const csv_data = getCsvData(filtered_data);
 	await saveCsv(csv_data, date);
 	debug(`${date} ok`);
