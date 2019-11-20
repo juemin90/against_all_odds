@@ -7,10 +7,12 @@ const moment = require('moment');
 const { Parser } = require('json2csv');
 const fs = require('fs');
 const { getMongoClient } = require('./../libs/db_mongo');
+const { waitAMinute, getHtml, getDates, getDateAndTime, getAverage, getCookie } = require('./../libs/utils');
+
+const cookie = getCookie();
 
 const COLLECTION_NAME = 'odds';
 const BASE_URL = 'https://www.dszuqiu.com';
-const cookie = 'Hm_lvt_a68414d98536efc52eeb879f984d8923=1573461414,1573905751; ds_session=r4h5b8qdfjbhrc7j27p0odl350; Hm_lpvt_a68414d98536efc52eeb879f984d8923=1574059831; uid=R-546490-8fd497af05dd23f4ea4027';
 let counter = 1;
 
 const field_map = {
@@ -35,43 +37,6 @@ const field_map = {
 	half_goal: '半场大小球',
 	half_goal_high_odd: '半场大球',
 	half_goal_low_odd: '半场小球',
-};
-
-const waitAMinute = () => new Promise((resolve) => {
-	const mili_second = (Math.random() * 5000) + 3000;
-	setTimeout(() => {
-		resolve();
-	}, mili_second);
-});
-
-const getHtml = (url, cookie) => new Promise((resolve, reject) => {
-	const header = {
-		'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/78.0.3904.97 Safari/537.36',
-	};
-	if (cookie) header.cookie = cookie;
-	superagent.get(url).set(header).end((err, html) => {
-		resolve(html.text);
-	});
-});
-
-const getDates = (start_date, end_date) => {
-	const dates = [];
-	for (let date = start_date; date <= end_date; date = moment(date).add(1, 'days').format('YYYYMMDD')) {
-		dates.push(date);
-	}
-	return dates;
-};
-
-const getDateAndTime = (str) => {
-	const [origin_date, time] = str.split(' ');
-	const [year, month, day] = origin_date.split('/');
-	const date = `20${year}-${month}-${day}`;
-	return [date, time];
-}
-
-const getAverage = (data) => {
-	const splitted_data = data.split(',');
-	return (splitted_data.map(item => parseFloat(item, 10)).reduce((a1, a2) => (a1 + a2))) / splitted_data.length;
 };
 
 const parseHtml = ($) => {
@@ -187,7 +152,7 @@ const getInfo = async (game_id) => {
 const deleteMongo = date => new Promise((resolve, reject) => {
 	const formatted_data = moment(date).format('YYYY-MM-DD');
 	getMongoClient().then((conn) => {
-		conn.collection(COLLECTION_NAME).deleteMany({ date }, (err) => {
+		conn.collection(COLLECTION_NAME).deleteMany({ date: formatted_data }, (err) => {
 			debug('test');
 			if (err) {
 				console.log(err);
@@ -244,7 +209,10 @@ const getInfos = data => new Promise((resolve, reject) => {
 		});
 	}, (err) => {
 		if (err) reject(err);
-		else resolve(data);
+		else {
+			counter = 1;
+			resolve(data);
+		}
 	});
 });
 
@@ -253,8 +221,8 @@ const saveCsv = (csv_data, date) => {
 	fs.writeFileSync(file_name, csv_data);
 }
 
-const start = async () => {
-	const date = process.env.date || moment().subtract(1, 'days').format('YYYYMMDD');
+exports.crawl = async (d) => {
+	const date = d || process.env.date || moment().subtract(1, 'days').format('YYYYMMDD');
 	debug(`${date} start`);
 	const data = (await getData(date)); // .slice(85, 90);
 	debug(data.length);
@@ -267,5 +235,3 @@ const start = async () => {
 	await saveCsv(csv_data, date);
 	debug(`${date} ok`);
 }
-
-start();
