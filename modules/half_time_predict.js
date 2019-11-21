@@ -17,12 +17,12 @@ const fields = ['主胜', '让走水', '客胜', '大', '小', '大小走水'];
 const url = 'https://live.dszuqiu.com/ajax/score/data?mt=0';
 
 const parseData = data => data.rs.filter(item => item.f_ld && item.rd).map(item => ({
-    game_name: decodeUtf8(item.league.fn),
+    game_name: item.league.fn,
     game_last_time: item.status,
-    home_team: decodeUtf8(item.host.sbn),
+    home_team: item.host.sbn,
     half_home_score: parseInt(item.rd.hg, 10),
     half_away_score: parseInt(item.rd.gg, 10),
-    away_team: decodeUtf8(item.guest.sbn),
+    away_team: item.guest.sbn,
     game_id: item.id,
     half_handicap_home_odd: parseFloat(item.f_ld.hrfsp, 10),
     half_handicap_goal: parseFloat(item.f_ld.hrf, 10),
