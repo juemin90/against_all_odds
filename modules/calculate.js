@@ -51,7 +51,6 @@ exports.calculate = async (game) => {
 		half_handicap_goal: game.half_handicap_goal,
 		half_goal: game.half_goal,
 	};
-	debug(conditions);
 	try {
 		const games = await getGames(conditions);
 		const analyzed_data = analyzeGame(games, conditions);
@@ -60,12 +59,3 @@ exports.calculate = async (game) => {
 		debug(e.message);
 	}
 };
-
-const half_data = {
-	half_home_score: 0,
-	half_away_score: 0,
-	half_handicap_goal: -1,
-	half_goal: 1.5
-};
-
-exports.calculate(half_data);
