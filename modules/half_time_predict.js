@@ -13,7 +13,7 @@ const {
     calculate
 } = require('./calculate');
 
-const fields = ['主胜', '让走水', '客胜', '大', '小', '大小走水'];
+const fields = ['主胜', '让走水', '客胜', '大', '小', '大小走水', '主进球', '客进球', '主客进球'];
 const url = 'https://live.dszuqiu.com/ajax/score/data?mt=0';
 
 const parseData = data => data.rs.filter(item => item.f_ld && item.rd).map(item => ({
@@ -86,6 +86,7 @@ const start = async () => {
     const filtered_data = filterData(games);
     const predicted_data = await predictData(filtered_data);
 	debug(predicted_data);
+	process.exit(1);
 };
 
 start();
