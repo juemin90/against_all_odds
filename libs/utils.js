@@ -39,3 +39,23 @@ exports.getAverage = (data) => {
 };
 
 exports.getCookie = () => 'Hm_lvt_a68414d98536efc52eeb879f984d8923=1573461414,1573905751; ds_session=r4h5b8qdfjbhrc7j27p0odl350; Hm_lpvt_a68414d98536efc52eeb879f984d8923=1574059831; uid=R-546490-8fd497af05dd23f4ea4027';
+
+
+exports.getGameLastTime = (str) => {
+	let result = '';
+	if (str === '半') result = str;
+	else if (str === '-') result = 0;
+	else result = parseInt(str, 10);
+	return result;
+};
+
+exports.getPeriod = (str) => {
+	let result = '';
+	if (str === '半' || str === '未') result = str;
+	else if (str === '-' || parseInt(str, 10) < 25) result = 1;
+	else if (parseInt(str, 10) < 45) result = 2;
+	else if (parseInt(str, 10) < 75) result = 3;
+	else if (parseInt(str, 10) < 90) result = 4;
+
+	return result;
+};
