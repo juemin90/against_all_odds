@@ -13,6 +13,7 @@ const {
     calculate
 } = require('./calculate');
 
+const threshold = 65;
 const fields = ['主胜', '让走水', '客胜', '大', '小', '大小走水', '主进球', '客进球', '主客进球'];
 const url = 'https://live.dszuqiu.com/ajax/score/data?mt=0';
 
@@ -43,7 +44,7 @@ const getGames = () => new Promise((resolve, reject) => {
 });
 
 const filterData = (games) => {
-    return games.filter(game => (parseInt(game.game_last_time, 10) <= 48 && parseInt(game.game_last_time, 10) >= 43 || game.game_last_time === '半') && (Math.abs(game.half_handicap_goal) >= 0.5));
+    return games.filter(game => (parseInt(game.game_last_time, 10) === 45 || game.game_last_time === '半') && (Math.abs(game.half_handicap_goal) >= 0.5));
 };
 
 const getBestOdd = (game) => {
@@ -77,7 +78,9 @@ const predictData = async (games) => {
         const calculated_data = await calculate(game);
         Object.assign(game, calculated_data);
     }
-    return getString(games);
+	// debug(games);
+	selected_games = games.filter(game => game['标本数量'] >= 5 && parseInt(game['主胜'], 10) > threshold || parseInt(game['客胜'], 10) > threshold);
+    return getString(selected_games);
 }
 
 const start = async () => {

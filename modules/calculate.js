@@ -59,3 +59,12 @@ exports.calculate = async (game) => {
 		debug(e.message);
 	}
 };
+
+// const game = {
+// 	half_home_score: 1,
+// 	half_away_score: 0,
+// 	half_handicap_goal: -0.5,
+// 	half_goal: 2.75
+// }
+
+// exports.calculate(game);

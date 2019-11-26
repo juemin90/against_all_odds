@@ -20,7 +20,7 @@ const predictGame = (games) => {
 	games.forEach((game, index) => {
 		if (Math.abs(game.half_handicap_goal) < 0.5) return;
 		const filtered_games = games.filter(g => g.half_home_score === game.half_home_score && g.half_away_score === game.half_away_score && g.half_goal === game.half_goal && g.half_handicap_goal === game.half_handicap_goal);
-		if (filtered_games.length < 3) return;
+		if (filtered_games.length < 5) return;
 		valid_game_num += 1;
 		const item = { '主胜': 0, '客胜': 0, '大球': 0, '小球': 0 };
 		filtered_games.forEach((filtered_game) => {
