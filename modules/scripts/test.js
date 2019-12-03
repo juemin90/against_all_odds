@@ -1,4 +1,4 @@
-const { getMongoClient } = require('./../libs/db_mongo');
+const { getMongoClient } = require('./../../libs/db_mongo');
 const debug = require('debug')('crawler:test');
 
 const threshold = 0.75;

@@ -1,5 +1,6 @@
 const superagent = require('superagent');
-const debug = require('debug')('crawler:utils');
+const debug = require('debug')('odds:utils');
+const { getMongoClient } = require('./../libs/db_mongo');
 
 exports.waitAMinute = () => new Promise((resolve) => {
 	const mili_second = (Math.random() * 5000) + 3000;
@@ -8,13 +9,15 @@ exports.waitAMinute = () => new Promise((resolve) => {
 	}, mili_second);
 });
 
+const header = {
+	'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/78.0.3904.97 Safari/537.36',
+};
+
 exports.getHtml = (url, cookie) => new Promise((resolve, reject) => {
-	const header = {
-		'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/78.0.3904.97 Safari/537.36',
-	};
 	if (cookie) header.cookie = cookie;
 	superagent.get(url).set(header).end((err, html) => {
-		resolve(html.text);
+		if (!html) reject(html);
+		else resolve(html.text);
 	});
 });
 
@@ -59,3 +62,46 @@ exports.getPeriod = (str) => {
 
 	return result;
 };
+
+exports.getData = (collection_name, conditions, options) => new Promise((resolve, reject) => {
+	getMongoClient().then((conn) => {
+		conn.collection(collection_name).find(conditions, options).toArray((err, data) => {
+			if (err) reject(err);
+			else resolve(data);
+		});
+	});
+});
+
+exports.getCount = (collection_name, conditions) => new Promise((resolve, reject) => {
+	getMongoClient().then((conn) => {
+		conn.collection(collection_name).countDocuments(conditions, (err, count) => {
+			if (err) reject(err);
+			else resolve(count);
+		});
+	});
+});
+
+const parseCurrentGame = data => data.rs.filter(item => item.f_ld && item.rd).map(item => ({
+    game_name: item.league.fn,
+    game_last_time: item.status,
+    home_team: item.host.sbn,
+    half_home_score: parseInt(item.rd.hg, 10),
+    half_away_score: parseInt(item.rd.gg, 10),
+    away_team: item.guest.sbn,
+    game_id: item.id,
+    half_handicap_home_odd: parseFloat(item.f_ld.hrfsp, 10),
+    half_handicap_goal: parseFloat(item.f_ld.hrf, 10),
+    half_handicap_away_odd: parseFloat(item.f_ld.grfsp, 10),
+    half_goal_high_odd: parseFloat(item.f_ld.hdxsp, 10),
+    half_goal: parseFloat(item.f_ld.hdx, 10),
+    half_goal_low_odd: parseFloat(item.f_ld.gdxsp, 10),
+}));
+
+exports.getCurrentGames = () => new Promise((resolve, reject) => {
+	const url = 'https://live.dszuqiu.com/ajax/score/data?mt=0';
+	superagent.get(url).set(header).end((err, res) => {
+    resolve(parseCurrentGame(res.body));
+	});
+});
+
+exports.toFixedNumber = (num, digit = 6) => parseFloat(num.toFixed(6), 10);

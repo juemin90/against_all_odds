@@ -6,7 +6,7 @@ const iconv = require('iconv-lite');
 const moment = require('moment');
 const { Parser } = require('json2csv');
 const fs = require('fs');
-const { getMongoClient } = require('./../libs/db_mongo');
+const { getMongoClient } = require('./../../libs/db_mongo');
 const { waitAMinute, getHtml, getDates, getDateAndTime, getAverage, getCookie } = require('./../libs/utils');
 
 const cookie = getCookie();

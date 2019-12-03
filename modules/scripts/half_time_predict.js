@@ -8,12 +8,14 @@ const {
     getAverage,
     getCookie,
     decodeUtf8
-} = require('./../libs/utils');
+} = require('./../../libs/utils');
 const {
     calculate
 } = require('./calculate');
 
-const threshold = 65;
+const chance_threshold = 50;
+const sample_threshold = 5;
+
 const fields = ['主胜', '让走水', '客胜', '大', '小', '大小走水', '主进球', '客进球', '主客进球'];
 const url = 'https://live.dszuqiu.com/ajax/score/data?mt=0';
 
@@ -79,13 +81,13 @@ const predictData = async (games) => {
         Object.assign(game, calculated_data);
     }
 	// debug(games);
-	selected_games = games.filter(game => game['标本数量'] >= 5 && parseInt(game['主胜'], 10) > threshold || parseInt(game['客胜'], 10) > threshold);
+	selected_games = games.filter(game => game['标本数量'] >= sample_threshold && (parseInt(game['主胜'], 10) >= chance_threshold || parseInt(game['客胜'], 10) >= chance_threshold));
     return getString(selected_games);
 }
 
 const start = async () => {
     const games = await getGames();
-	// debug(games);
+	   debug(games.length);
     const filtered_data = filterData(games);
     const predicted_data = await predictData(filtered_data);
 	debug(predicted_data);

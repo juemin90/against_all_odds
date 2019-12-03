@@ -1,5 +1,5 @@
 const debug = require('debug')('crawler:calculate');
-const { getMongoClient } = require('./../libs/db_mongo');
+const { getMongoClient } = require('./../../libs/db_mongo');
 
 const COLLECTION_NAME = 'odds';
 
