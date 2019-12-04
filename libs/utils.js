@@ -41,13 +41,12 @@ exports.getAverage = (data) => {
 	return (splitted_data.map(item => parseFloat(item, 10)).reduce((a1, a2) => (a1 + a2))) / splitted_data.length;
 };
 
-exports.getCookie = () => 'Hm_lvt_a68414d98536efc52eeb879f984d8923=1573461414,1573905751; ds_session=r4h5b8qdfjbhrc7j27p0odl350; Hm_lpvt_a68414d98536efc52eeb879f984d8923=1574059831; uid=R-546490-8fd497af05dd23f4ea4027';
-
+exports.getCookie = () => 'Hm_lvt_a68414d98536efc52eeb879f984d8923=1574131519,1574654048,1575425801,1575442854; ds_session=c8163olnk4fqp6kakbs2tfa8c6; uid=552722-45efd4e005de788bc8a7b9; Hm_lpvt_a68414d98536efc52eeb879f984d8923=1575454909';
 
 exports.getGameLastTime = (str) => {
 	let result = '';
-	if (str === '半') result = str;
-	else if (str === '-') result = 0;
+	if (str.includes('半')) result = '半';
+	else if (str.includes('-')) result = 0;
 	else result = parseInt(str, 10);
 	return result;
 };

@@ -1,5 +1,5 @@
 const async = require('async');
-const debug = require('debug')('crawler:odds');
+const debug = require('debug')('odds:odds');
 const cheerio = require('cheerio');
 const superagent = require('superagent');
 const iconv = require('iconv-lite');
@@ -99,8 +99,10 @@ const getInfo = async (game_id) => {
 		const full_handicap_odds = [];
 		const half_handicap_odds = [];
 
-		full_handicap_trs.each((index, full_handicap_tr) => {
-			const tds = $(full_handicap_tr).find('td');
+		let crossbar_flag = false;
+		for (let index = full_handicap_trs.length - 1; index >= 0; index -= 1) {
+		// full_handicap_trs.each((index, full_handicap_tr) => {
+			const tds = $(full_handicap_trs[index]).find('td');
 			const item = {};
 			tds.each((index, td) => {
 				const field_value = $(td).text();
@@ -109,12 +111,15 @@ const getInfo = async (game_id) => {
 				if (index === 2) item.handicap_home_odd = parseFloat(field_value, 10) || 0;
 				if (index === 3) item.handicap_goal = getAverage(field_value) || 0;
 				if (index === 4) item.handicap_away_odd = parseFloat(field_value, 10) || 0;
+				if (item.game_last_time !== 0) crossbar_flag = true;
 			});
-			full_handicap_odds.push(item);
-		});
+			if (item.game_last_time !== 0 || (item.game_last_time === 0 && !crossbar_flag)) full_handicap_odds.push(item);
+		};
+		full_handicap_odds.reverse();
 
-		half_handicap_trs.each((index, half_handicap_tr) => {
-			const tds = $(half_handicap_tr).find('td');
+		crossbar_flag = false;
+		for (let index = half_handicap_trs.length - 1; index >= 0; index -= 1) {
+			const tds = $(half_handicap_trs[index]).find('td');
 			const item = {};
 			tds.each((index, td) => {
 				const field_value = $(td).text();
@@ -123,9 +128,11 @@ const getInfo = async (game_id) => {
 				if (index === 2) item.handicap_home_odd = parseFloat(field_value, 10) || 0;
 				if (index === 3) item.handicap_goal = getAverage(field_value) || 0;
 				if (index === 4) item.handicap_away_odd = parseFloat(field_value, 10) || 0;
+				if (crossbar_flag === false && item.game_last_time !== 0) crossbar_flag = true;
 			});
-			half_handicap_odds.push(item);
-		});
+			if (item.game_last_time !== 0 || (item.game_last_time === 0 && !crossbar_flag)) half_handicap_odds.push(item);
+		};
+		half_handicap_odds.reverse();
 
 		const full_goals_trs = $($('.daxiao table')[0]).find('tr');
 		const half_goals_trs = $($('.daxiao table')[1]).find('tr');
@@ -133,8 +140,9 @@ const getInfo = async (game_id) => {
 		const full_goals_odds = [];
 		const half_goals_odds = [];
 
-		full_goals_trs.each((index, full_goals_tr) => {
-			const tds = $(full_goals_tr).find('td');
+		crossbar_flag = false;
+		for (let index = full_goals_trs.length - 1; index >= 0; index -= 1) {
+			const tds = $(full_goals_trs[index]).find('td');
 			const item = {};
 			tds.each((index, td) => {
 				const field_value = $(td).text();
@@ -143,12 +151,15 @@ const getInfo = async (game_id) => {
 				if (index === 2) item.goal_high_odd = parseFloat(field_value, 10) || 0;
 				if (index === 3) item.goal = getAverage(field_value) || 0;
 				if (index === 4) item.goal_low_odd = parseFloat(field_value, 10) || 0;
+				if (item.game_last_time !== 0) crossbar_flag = true;
 			});
-			full_goals_odds.push(item);
-		});
+			if (item.game_last_time !== 0 || (item.game_last_time === 0 && !crossbar_flag)) full_goals_odds.push(item);
+		};
+		full_goals_odds.reverse();
 
-		half_goals_trs.each((index, half_goals_tr) => {
-			const tds = $(half_goals_tr).find('td');
+		crossbar_flag = false;
+		for (let index = full_goals_trs.length - 1; index >= 0; index -= 1) {
+			const tds = $(half_goals_trs[index]).find('td');
 			const item = {};
 			tds.each((index, td) => {
 				const field_value = $(td).text();
@@ -157,16 +168,16 @@ const getInfo = async (game_id) => {
 				if (index === 2) item.goal_high_odd = parseFloat(field_value, 10) || 0;
 				if (index === 3) item.goal = getAverage(field_value) || 0;
 				if (index === 4) item.goal_low_odd = parseFloat(field_value, 10) || 0;
+				if (item.game_last_time !== 0) crossbar_flag = true;
 			});
-			half_goals_odds.push(item);
-		});
+			if (item.game_last_time !== 0 || (item.game_last_time === 0 && !crossbar_flag)) half_goals_odds.push(item);
+		};
+		half_goals_odds.reverse();
 
 		const odds = [];
 
 		const first_half_minutes = Array.from(Array(46).keys());
 		const second_half_minutes = Array.from(Array(45).keys()).map(item => item + 46);
-
-		// [...first_half_minutes, 45.5, ...second_half_minutes].forEach((minute) => {
 		first_half_minutes.forEach((minute) => {
 			const item = { game_last_time: minute };
 
@@ -295,15 +306,16 @@ exports.crawl = async (d) => {
 	try {
 		const date = d || process.env.date || moment().subtract(1, 'days').format('YYYYMMDD');
 		debug(`${date} start`);
-		const data = (await getData(date)); // .slice(0, 1);
+		const data = (await getData(date)) // .slice(0, 1);
 		debug(data.length);
 		await waitAMinute();
 		const got_info_data = await getInfos(data);
+		// debug(got_info_data);
 		const filtered_data = filterData(got_info_data);
 		await deleteMongo(date);
 		await insertMongo(got_info_data);
 		debug(`${date} ok`);
 	} catch (e) {
-		debug('continue');
+		debug('continue', e);
 	}
 }

@@ -2,8 +2,8 @@ const moment = require('moment');
 const debug = require('debug')('crawler:odds');
 const { crawl } = require('./crawler_v2');
 
-const start_date = '20191128';
-const end_date = '20191129';
+const start_date = '20191203';
+const end_date = '20191203';
 
 const getDates = (start_date, end_date) => {
 	const dates = [];
